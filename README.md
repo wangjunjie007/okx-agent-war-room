@@ -15,7 +15,7 @@ This project turns a trading mission into a multi-agent workflow:
 
 ## Current release
 
-The repo is now a **final demo-ready MVP**:
+The repo is now a **demo-ready final open-source version** with:
 
 - modular backend app/router layout
 - six independent backend agent modules
@@ -32,10 +32,10 @@ The repo is now a **final demo-ready MVP**:
 - execution bridge panel with routes / guardrails / triggers
 - signal scoring engine for direction / confidence / action suggestion
 - simplified backtest preview over recent hourly candles
-- execution simulator with entry / stop / targets / notional cap / reward-risk
-- live multi-asset watchlist (BTC / ETH / SOL / OKB)
-- strategy leaderboard derived from historical runs
-- dashboard widgets for score + backtest edge + simulator outputs
+- execution simulator with entry / stop / target / notional suggestions
+- live multi-asset watchlist for BTC / ETH / SOL / OKB
+- strategy leaderboard across historical runs
+- dashboard widgets for score + backtest edge + simulator state
 
 ## Stack
 
@@ -60,44 +60,34 @@ http://127.0.0.1:8848/
 ## API
 
 ### Health
-
-`GET /api/health`
-
-### Build mission plan
-
-`POST /api/mission/plan`
+- `GET /api/health`
 
 ### Market watchlist
+- `GET /api/market/watchlist`
 
-`GET /api/market/watchlist`
+### Leaderboard
+- `GET /api/analytics/leaderboard`
 
-### Strategy leaderboard
-
-`GET /api/analytics/leaderboard`
+### Build mission plan
+- `POST /api/mission/plan`
 
 ### Create persisted mission run
-
-`POST /api/mission/runs`
+- `POST /api/mission/runs`
 
 ### List mission runs
-
-`GET /api/mission/runs`
+- `GET /api/mission/runs`
 
 ### Get mission run
-
-`GET /api/mission/runs/:id`
+- `GET /api/mission/runs/:id`
 
 ### Get mission run events
-
-`GET /api/mission/runs/:id/events`
+- `GET /api/mission/runs/:id/events`
 
 ### Get replay frames
-
-`GET /api/mission/runs/:id/replay`
+- `GET /api/mission/runs/:id/replay`
 
 ### Get analytics bundle
-
-`GET /api/mission/runs/:id/analytics`
+- `GET /api/mission/runs/:id/analytics`
 
 Body:
 
@@ -128,7 +118,7 @@ src/
 
 The execution layer still produces structured execution plans rather than real orders. That keeps the repo safe to run publicly while preserving the end-to-end coordination model.
 
-The score / backtest / simulator modules are **decision-support layers**, not live trading promises. They are intentionally lightweight, explainable, and safe to demo publicly.
+The score / backtest / simulator modules are **decision-support layers**, not live trading promises. They are intentionally lightweight, interpretable, and safe to demo publicly.
 
 ## License
 

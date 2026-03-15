@@ -1,6 +1,6 @@
 {
   "name": "okx-agent-war-room",
-  "version": "0.4.0",
+  "version": "1.0.0",
   "private": false,
   "description": "Multi-agent trading command center built around OKX Agent Trade Kit.",
   "main": "src/server.js",
