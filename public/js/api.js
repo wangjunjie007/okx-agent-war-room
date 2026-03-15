@@ -28,3 +28,8 @@ export async function fetchReplay(runId) {
   const data = await request(`/api/mission/runs/${runId}/replay`);
   return data.replay;
 }
+
+export async function fetchAnalytics(runId) {
+  const data = await request(`/api/mission/runs/${runId}/analytics`);
+  return data.analytics;
+}

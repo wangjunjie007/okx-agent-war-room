@@ -2,7 +2,7 @@ import { buildExecutionBridge } from '../lib/execution-bridge.js';
 import { fmt } from '../lib/mission-utils.js';
 
 export function runExecutionAgent(context) {
-  const { snapshot, bias, risk, mode, asset, strategy, riskAgent } = context;
+  const { snapshot, bias, risk, mode, asset, strategy, riskAgent, signalScore } = context;
   const execution = [
     `交易对象：${snapshot.instId}`,
     `方向判断：${bias}`,
@@ -18,7 +18,8 @@ export function runExecutionAgent(context) {
     risk,
     mode,
     strategyText: strategy.text,
-    riskText: riskAgent.text
+    riskText: riskAgent.text,
+    signalScore
   });
 
   return {
@@ -26,6 +27,6 @@ export function runExecutionAgent(context) {
     text: `已接收共识，开始组织执行总线：${execution.join('；')}。${bridge.summary}`,
     execution,
     bridge,
-    note: `建立 ${execution[0]} / ${execution[2]} / ${execution[3]} 的执行路径。`
+    note: `建立 ${execution[0]} / ${execution[2]} / ${execution[3]} 的执行路径，并挂接评分护栏。`
   };
 }

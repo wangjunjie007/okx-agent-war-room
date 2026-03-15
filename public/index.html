@@ -654,6 +654,36 @@
       backdrop-filter: blur(16px);
     }
 
+
+    .analytics-grid {
+      display: grid;
+      gap: 8px;
+    }
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      font-size: 12px;
+      color: #dce9ff;
+    }
+    .metric-row strong { font-size: 14px; }
+    .score-track {
+      width: 100%;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.06);
+      overflow: hidden;
+    }
+    .score-fill {
+      display: block;
+      height: 100%;
+      width: 0%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--warn), var(--okx));
+      transition: width .35s ease;
+    }
+
     .bridge-block { margin-top: 10px; }
     .bridge-block span {
       display: inline-block;
@@ -779,6 +809,8 @@
       <div class="status-cluster">
         <div class="stat-pill"><div class="label">作战态势</div><div class="value" id="missionState">待命</div></div>
         <div class="stat-pill"><div class="label">协同 Agent</div><div class="value">6 Units</div></div>
+        <div class="stat-pill"><div class="label">信号评分</div><div class="value" id="topSignalScore">--</div></div>
+        <div class="stat-pill"><div class="label">回测边际</div><div class="value" id="topBacktestEdge">--</div></div>
         <div class="stat-pill"><div class="label">指令批次</div><div class="value" id="missionId">WAR-000</div></div>
       </div>
     </section>
@@ -910,6 +942,24 @@
             <div class="mission-card">
               <div class="mission-top"><div class="mission-title">Execution Bridge</div><div class="chip" id="bridgeChip">Idle</div></div>
               <div class="mission-meta" id="bridgeSummary">Execution Bridge 将在任务生成后展示执行路由、护栏与触发条件。</div>
+            </div>
+            <div class="mission-card">
+              <div class="mission-top"><div class="mission-title">Signal Score</div><div class="chip" id="scoreChip">Pending</div></div>
+              <div class="analytics-grid">
+                <div class="metric-row"><span>综合评分</span><strong id="scoreValue">--</strong></div>
+                <div class="score-track"><i class="score-fill" id="scoreBar"></i></div>
+                <div class="metric-row"><span>方向</span><span id="scoreDirection">--</span></div>
+                <div class="metric-row"><span>动作建议</span><span id="scoreAction">--</span></div>
+              </div>
+            </div>
+            <div class="mission-card">
+              <div class="mission-top"><div class="mission-title">Backtest Preview</div><div class="chip" id="backtestChip">Pending</div></div>
+              <div class="analytics-grid">
+                <div class="metric-row"><span>收益率</span><strong id="backtestPnl">--</strong></div>
+                <div class="metric-row"><span>胜率</span><span id="backtestWinRate">--</span></div>
+                <div class="metric-row"><span>回撤</span><span id="backtestDrawdown">--</span></div>
+                <div class="mission-meta" id="backtestSummary">等待生成回测概览。</div>
+              </div>
             </div>
             <div class="mission-card">
               <div class="mission-top"><div class="mission-title">Mission Archive</div><div class="chip">Replay</div></div>

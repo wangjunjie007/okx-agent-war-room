@@ -12,6 +12,8 @@ const runBtn = document.getElementById('runBtn');
 const demoBtn = document.getElementById('demoBtn');
 const missionState = document.getElementById('missionState');
 const missionId = document.getElementById('missionId');
+const topSignalScore = document.getElementById('topSignalScore');
+const topBacktestEdge = document.getElementById('topBacktestEdge');
 const logMeta = document.getElementById('logMeta');
 const busProgress = document.getElementById('busProgress');
 const riskProgress = document.getElementById('riskProgress');
@@ -32,6 +34,16 @@ const bridgeChip = document.getElementById('bridgeChip');
 const bridgeSummary = document.getElementById('bridgeSummary');
 const archiveList = document.getElementById('archiveList');
 const heroSubtitle = document.getElementById('heroSubtitle');
+const scoreChip = document.getElementById('scoreChip');
+const scoreValue = document.getElementById('scoreValue');
+const scoreBar = document.getElementById('scoreBar');
+const scoreDirection = document.getElementById('scoreDirection');
+const scoreAction = document.getElementById('scoreAction');
+const backtestChip = document.getElementById('backtestChip');
+const backtestPnl = document.getElementById('backtestPnl');
+const backtestWinRate = document.getElementById('backtestWinRate');
+const backtestDrawdown = document.getElementById('backtestDrawdown');
+const backtestSummary = document.getElementById('backtestSummary');
 
 let intentText = null;
 let conclusionText = null;
@@ -55,8 +67,7 @@ function bindEvents() {
   archiveList?.addEventListener('click', async (event) => {
     const row = event.target.closest('[data-run-id]');
     if (!row) return;
-    const runId = row.dataset.runId;
-    await replayArchivedRun(runId);
+    await replayArchivedRun(row.dataset.runId);
   });
 }
 
@@ -129,16 +140,17 @@ function seedLogs() {
   pushLog('系统', '作战室已就绪，等待新指令。');
   pushBubble('系统广播', '战区已联机，所有 Agent 处于待命状态。', 'right', 'intel');
   ensureCommsNarrative();
-  intentText.textContent = '在输入框下达任务后，系统会生成多 Agent 协作叙事、执行路径与完整任务结论。';
+  intentText.textContent = '在输入框下达任务后，系统会生成多 Agent 协作叙事、执行路径、评分与回测结论。';
   conclusionText.textContent = '等待多 Agent 形成结论后，在这里输出更完整的策略纪要、风险摘要和执行建议。';
   createMissionCards([
     ['情报采集', '监测 X 情绪、热点叙事、链上异动与风险线索'],
     ['策略编排', '把市场信号压缩为可执行的战术意图'],
-    ['风控仲裁', '限制风险敞口，模拟审核执行阈值'],
+    ['评分 / 回测', '输出信号评分、方向建议与最近 24h 简化回测'],
     ['执行协同', '通过 OKX Agent Trade Kit 作为执行中枢做视觉演示']
   ]);
-  bridgeSummary.innerHTML = 'Execution Bridge 将在任务生成后展示执行路由、护栏与触发条件。';
-  bridgeChip.textContent = 'Idle';
+  renderBridge(null);
+  renderSignalScore(null);
+  renderBacktest(null);
   scrollComms(true);
 }
 
@@ -178,9 +190,7 @@ function pushBubble(actor, content, side = 'left', theme = 'intel') {
 function scrollComms(force = false) {
   requestAnimationFrame(() => {
     const nearBottom = bubbleStream.scrollHeight - bubbleStream.scrollTop - bubbleStream.clientHeight < 120;
-    if (force || nearBottom) {
-      bubbleStream.scrollTop = bubbleStream.scrollHeight;
-    }
+    if (force || nearBottom) bubbleStream.scrollTop = bubbleStream.scrollHeight;
   });
 }
 
@@ -245,6 +255,42 @@ function renderBridge(bridge) {
   `;
 }
 
+function renderSignalScore(score) {
+  if (!score) {
+    topSignalScore.textContent = '--';
+    scoreChip.textContent = 'Pending';
+    scoreValue.textContent = '--';
+    scoreBar.style.width = '0%';
+    scoreDirection.textContent = '--';
+    scoreAction.textContent = '--';
+    return;
+  }
+  topSignalScore.textContent = `${score.total}`;
+  scoreChip.textContent = score.confidence;
+  scoreValue.textContent = `${score.total}/100`;
+  scoreBar.style.width = `${score.total}%`;
+  scoreDirection.textContent = score.direction;
+  scoreAction.textContent = score.action;
+}
+
+function renderBacktest(backtest) {
+  if (!backtest) {
+    topBacktestEdge.textContent = '--';
+    backtestChip.textContent = 'Pending';
+    backtestPnl.textContent = '--';
+    backtestWinRate.textContent = '--';
+    backtestDrawdown.textContent = '--';
+    backtestSummary.textContent = '等待生成回测概览。';
+    return;
+  }
+  topBacktestEdge.textContent = `${backtest.pnlPct > 0 ? '+' : ''}${backtest.pnlPct}%`;
+  backtestChip.textContent = backtest.pnlPct > 0 ? 'Positive' : backtest.pnlPct < 0 ? 'Caution' : 'Flat';
+  backtestPnl.textContent = `${backtest.pnlPct > 0 ? '+' : ''}${backtest.pnlPct}%`;
+  backtestWinRate.textContent = `${backtest.winRate}%`;
+  backtestDrawdown.textContent = `${backtest.maxDrawdownPct}%`;
+  backtestSummary.textContent = backtest.summary;
+}
+
 function resetBoard() {
   AGENTS.forEach(agent => setAgentState(agent.key, { badge: 'Standby', status: '等待新任务', pct: 0, note: agent.note, busy: false }));
   missionState.textContent = '待命';
@@ -269,6 +315,8 @@ function resetBoard() {
     signalHint: '指挥总线空闲'
   });
   renderBridge(null);
+  renderSignalScore(null);
+  renderBacktest(null);
   approvalStamp.classList.remove('show');
 }
 
@@ -277,7 +325,9 @@ function applyRunPresentation(run) {
   if (run.mission) intentText.textContent = `当前作战任务：${run.mission}`;
   if (run.plan?.execution?.length) busText.textContent = run.plan.execution.join('；');
   if (run.plan?.riskText) riskText.textContent = run.plan.riskText;
-  if (run.plan?.executionBridge) renderBridge(run.plan.executionBridge);
+  renderBridge(run.plan?.executionBridge || null);
+  renderSignalScore(run.plan?.signalScore || null);
+  renderBacktest(run.plan?.backtest || null);
   if (run.conclusionHtml) conclusionText.innerHTML = run.conclusionHtml;
   const states = run.agentStates || [];
   states.forEach(state => setAgentState(state.key, state));
@@ -351,8 +401,8 @@ async function startMission() {
   createMissionCards([
     ['信号拆解', `解析指令意图：${mission}`],
     ['跨 Agent 协同', '情报、链上、策略、风控、执行、复盘模块同步工作'],
-    ['执行桥接', 'Execution Bridge 生成路由、护栏与回放帧'],
-    ['任务归档', '支持 recent runs + replay 回放']
+    ['评分 / 回测', '输出 Signal Score、方向建议与简化回测边际'],
+    ['执行桥接', 'Execution Bridge 生成路由、护栏、评分与回放帧']
   ]);
   pushLog('指挥官', `已下达任务：${mission}`);
   renderedEventCount = 0;
@@ -392,8 +442,7 @@ function renderArchive(runs) {
 
 async function refreshArchive() {
   try {
-    const runs = await fetchRuns(8);
-    renderArchive(runs);
+    renderArchive(await fetchRuns(8));
   } catch (error) {
     archiveList.innerHTML = `<div class="archive-empty">归档读取失败：${error.message || error}</div>`;
   }
@@ -413,7 +462,6 @@ async function replayArchivedRun(runId) {
   const run = await fetchRun(runId);
   applyRunPresentation({ ...run, conclusionHtml: '' });
   conclusionText.textContent = '正在按 stage timeline 回放任务…';
-  renderedEventCount = 0;
 
   for (const frame of replay.frames || []) {
     if (frame.agentState?.key) setAgentState(frame.agentState.key, frame.agentState);

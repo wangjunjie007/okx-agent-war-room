@@ -1,5 +1,5 @@
 export function runStrategyAgent(context) {
-  const { bias, snapshot } = context;
+  const { bias, snapshot, signalScore, backtest } = context;
   const basisSupportive = Number(snapshot.basisPct || 0) >= 0;
   let text = '策略层建议维持“观察态 + 触发式执行”，避免在中性区间过早扩大敞口。';
   if (bias === '偏多') {
@@ -9,9 +9,13 @@ export function runStrategyAgent(context) {
   } else if (bias === '偏空') {
     text = '策略层建议采用“反弹观察 → 防守优先 → 条件反手”的保守路线，避免在弱势结构内主观抄底。';
   }
+
+  text += ` 当前信号评分为 ${signalScore.total}/100（${signalScore.confidence}），建议动作：${signalScore.action}。`;
+  text += ` 简化回测参考：${backtest.summary}`;
+
   return {
     key: 'strategy',
     text,
-    note: '把情报层、流量层和基差结构压缩成执行路径。'
+    note: '把情报层、流量层、评分层与回测概览压缩成执行路径。'
   };
 }

@@ -34,6 +34,19 @@ export function createApiRouter() {
     res.json({ ok: true, replay: buildReplayFrames(run) });
   });
 
+  router.get('/mission/runs/:id/analytics', (req, res) => {
+    const run = loadRun(req.params.id);
+    if (!run) return res.status(404).json({ ok: false, error: 'Run not found' });
+    res.json({
+      ok: true,
+      analytics: {
+        signalScore: run.plan?.signalScore || null,
+        backtest: run.plan?.backtest || null,
+        executionBridge: run.plan?.executionBridge || null
+      }
+    });
+  });
+
   router.post('/mission/runs', async (req, res) => {
     try {
       const mission = String(req.body?.mission || '').trim() || 'Monitor ETH sentiment and flow, then prepare a low-risk staged execution plan.';
