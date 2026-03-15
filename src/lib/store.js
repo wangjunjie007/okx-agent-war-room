@@ -13,6 +13,13 @@ function runPath(id) {
   return path.join(runsDir, `${id}.json`);
 }
 
+function withRun(id, updater) {
+  const run = loadRun(id);
+  if (!run) throw new Error(`Run not found: ${id}`);
+  const next = updater(run) || run;
+  return saveRun(next);
+}
+
 export function createRunId() {
   return `run_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -41,19 +48,41 @@ export function listRuns(limit = 20) {
 }
 
 export function appendEvent(id, event) {
-  const run = loadRun(id);
-  if (!run) throw new Error(`Run not found: ${id}`);
-  run.events = run.events || [];
-  run.events.push({
-    ts: new Date().toISOString(),
-    ...event
+  return withRun(id, (run) => {
+    run.events = run.events || [];
+    run.events.push({
+      ts: new Date().toISOString(),
+      ...event
+    });
+    return run;
   });
-  return saveRun(run);
+}
+
+export function appendReplayFrame(id, frame) {
+  return withRun(id, (run) => {
+    run.replayFrames = run.replayFrames || [];
+    run.replayFrames.push({
+      ts: new Date().toISOString(),
+      ...frame
+    });
+    return run;
+  });
+}
+
+export function appendStageRecord(id, stage) {
+  return withRun(id, (run) => {
+    run.stageTimeline = run.stageTimeline || [];
+    run.stageTimeline.push({
+      ts: new Date().toISOString(),
+      ...stage
+    });
+    return run;
+  });
 }
 
 export function patchRun(id, patch) {
-  const run = loadRun(id);
-  if (!run) throw new Error(`Run not found: ${id}`);
-  Object.assign(run, patch);
-  return saveRun(run);
+  return withRun(id, (run) => {
+    Object.assign(run, patch);
+    return run;
+  });
 }

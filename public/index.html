@@ -653,6 +653,69 @@
       background: rgba(5,10,20,.62); border: 1px solid rgba(255,255,255,.08); padding: 10px 14px; border-radius: 999px;
       backdrop-filter: blur(16px);
     }
+
+    .bridge-block { margin-top: 10px; }
+    .bridge-block span {
+      display: inline-block;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .bridge-block ul {
+      margin: 0;
+      padding-left: 18px;
+      display: grid;
+      gap: 6px;
+      color: #dce9ff;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .archive-list {
+      display: grid;
+      gap: 10px;
+      max-height: 220px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+    .archive-item {
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(255,255,255,.03);
+      border: 1px solid rgba(255,255,255,.07);
+      cursor: pointer;
+      transition: .18s ease;
+    }
+    .archive-item:hover {
+      transform: translateY(-1px);
+      border-color: rgba(101,228,255,.28);
+      box-shadow: 0 12px 22px rgba(0,0,0,.18);
+    }
+    .archive-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .archive-chip {
+      font-size: 10px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--cyan);
+    }
+    .archive-meta {
+      color: #dce9ff;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .archive-meta.small,
+    .archive-empty {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
     @media (max-width: 1280px) {
       .workspace, .hero-grid, .stack { grid-template-columns: 1fr; }
       .agent-grid { grid-template-columns: repeat(2, 1fr); }
@@ -844,622 +907,21 @@
               <div class="mission-top"><div class="mission-title">结论摘要</div><div class="chip" id="conclusionChip">Synced</div></div>
               <div class="mission-meta">最终结果已并入上方“协同对话流”，统一使用一致的字体、滚动与消息容器。</div>
             </div>
+            <div class="mission-card">
+              <div class="mission-top"><div class="mission-title">Execution Bridge</div><div class="chip" id="bridgeChip">Idle</div></div>
+              <div class="mission-meta" id="bridgeSummary">Execution Bridge 将在任务生成后展示执行路由、护栏与触发条件。</div>
+            </div>
+            <div class="mission-card">
+              <div class="mission-top"><div class="mission-title">Mission Archive</div><div class="chip">Replay</div></div>
+              <div class="archive-list" id="archiveList"></div>
+            </div>
           </div>
         </div>
       </div>
     </section>
   </div>
 
-  <script>
-    const agents = [
-      { key: 'intel', role: '情报总监', title: 'Sentiment & Narrative Intelligence', note: '监听市场情绪、新闻、热点叙事与社交舆情。', color: 'var(--cyan)', avatar: '🕶️' },
-      { key: 'chain', role: '链上侦察官', title: 'On-Chain Flow Analyst', note: '追踪大额资金流、地址活跃、链上异动与风险信号。', color: 'var(--okx)', avatar: '🛰️' },
-      { key: 'strategy', role: '策略指挥官', title: 'Strategy Architect', note: '整合情报，拆解方向、节奏、仓位、战术路径。', color: 'var(--gold)', avatar: '🧠' },
-      { key: 'risk', role: '风控总监', title: 'Risk Governor', note: '限制过度激进动作，给出边界、约束和优先级。', color: 'var(--warn)', avatar: '🛡️' },
-      { key: 'exec', role: '执行官', title: 'Execution Commander', note: '通过 OKX Agent Trade Kit 接管执行总线，完成任务编排、订单链路与权限流转。', color: 'var(--violet)', avatar: '⚡' },
-      { key: 'review', role: '复盘官', title: 'Post-Trade Reviewer', note: '总结有效模式、噪音信号与下一轮作战建议。', color: 'var(--pink)', avatar: '📘' },
-    ];
+    <script type="module" src="/app.js"></script>
 
-    const agentGrid = document.getElementById('agentGrid');
-    const logList = document.getElementById('logList');
-    const missionGrid = document.getElementById('missionGrid');
-    const bubbleStream = document.getElementById('bubbleStream');
-    const commandInput = document.getElementById('commandInput');
-    const runBtn = document.getElementById('runBtn');
-    const demoBtn = document.getElementById('demoBtn');
-    const missionState = document.getElementById('missionState');
-    const missionId = document.getElementById('missionId');
-    const logMeta = document.getElementById('logMeta');
-    const busProgress = document.getElementById('busProgress');
-    const riskProgress = document.getElementById('riskProgress');
-    const execChip = document.getElementById('execChip');
-    const riskChip = document.getElementById('riskChip');
-    const busText = document.getElementById('busText');
-    const riskText = document.getElementById('riskText');
-    const intentChip = document.getElementById('intentChip');
-    let intentText = null;
-    const conclusionChip = document.getElementById('conclusionChip');
-    let conclusionText = null;
-    const negotiationState = document.getElementById('negotiationState');
-    const negotiationSub = document.getElementById('negotiationSub');
-    const approvalState = document.getElementById('approvalState');
-    const approvalSub = document.getElementById('approvalSub');
-    const signalState = document.getElementById('signalState');
-    const signalSub = document.getElementById('signalSub');
-    const approvalStamp = document.getElementById('approvalStamp');
-
-    let activeRun = 0;
-    let autoLoop = null;
-    let currentRunId = null;
-    let renderedEventCount = 0;
-
-    function init() {
-      renderAgents();
-      seedLogs();
-      runBtn.addEventListener('click', startMission);
-      demoBtn.addEventListener('click', toggleDemo);
-      if (new URLSearchParams(location.search).get('autoplay') === '1') {
-        toggleDemo();
-      }
-    }
-
-    function renderAgents() {
-      agentGrid.innerHTML = '';
-      for (const agent of agents) {
-        const el = document.createElement('div');
-        el.className = 'agent-card';
-        el.id = `agent-${agent.key}`;
-        el.dataset.key = agent.key;
-        el.innerHTML = `
-          <div class="agent-bubble" id="speech-${agent.key}"></div>
-          <div class="agent-top">
-            <div>
-              <div class="role-name">${agent.role}</div>
-              <div class="role-title">${agent.title}</div>
-            </div>
-            <div class="badge" id="badge-${agent.key}">Standby</div>
-          </div>
-          <div class="agent-visual">
-            <div class="avatar-stage">
-              <div class="avatar">
-                <div class="avatar-head">
-                  <div class="avatar-hair"></div>
-                  <div class="avatar-headset"></div>
-                  <div class="avatar-face">
-                    <div class="eyes"><i></i><i></i></div>
-                    <div class="mouth"></div>
-                  </div>
-                </div>
-                <div class="avatar-shoulder"></div>
-                <div class="avatar-torso"></div>
-                <div class="avatar-glyph">${agent.avatar}</div>
-              </div>
-            </div>
-            <div>
-              <div class="agent-status">
-                <span id="status-${agent.key}">等待新任务</span>
-                <strong id="pct-${agent.key}">0%</strong>
-              </div>
-              <div class="progress"><i id="bar-${agent.key}" style="width:0%; background: linear-gradient(90deg, ${agent.color}, var(--okx));"></i></div>
-              <div class="agent-note" id="note-${agent.key}">${agent.note}</div>
-            </div>
-          </div>
-        `;
-        agentGrid.appendChild(el);
-      }
-    }
-
-    function ensureCommsNarrative() {
-      const processBubble = document.createElement('div');
-      processBubble.className = 'bubble left strategy system-note process';
-      processBubble.id = 'intentBubble';
-      processBubble.innerHTML = `<div class="bubble-inner"><div class="bubble-head">工作过程</div><div class="bubble-copy" id="intentText"></div></div>`;
-
-      const resultBubble = document.createElement('div');
-      resultBubble.className = 'bubble left review system-note result';
-      resultBubble.id = 'conclusionBubble';
-      resultBubble.innerHTML = `<div class="bubble-inner"><div class="bubble-head">结果摘要</div><div class="bubble-copy" id="conclusionText"></div></div>`;
-
-      bubbleStream.appendChild(processBubble);
-      bubbleStream.appendChild(resultBubble);
-      intentText = document.getElementById('intentText');
-      conclusionText = document.getElementById('conclusionText');
-    }
-
-    function seedLogs() {
-      logList.innerHTML = '';
-      bubbleStream.innerHTML = '';
-      pushLog('系统', '作战室已就绪，等待新指令。', 'boot');
-      pushBubble('系统广播', '战区已联机，所有 Agent 处于待命状态。', 'right', 'intel');
-      ensureCommsNarrative();
-      intentText.textContent = '在输入框下达任务后，系统会生成多 Agent 协作叙事、执行路径与完整任务结论。';
-      conclusionText.textContent = '等待多 Agent 形成结论后，在这里输出更完整的策略纪要、风险摘要和执行建议。';
-      scrollComms(true);
-      createMissionCards([
-        ['情报采集', '监测 X 情绪、热点叙事、链上异动与风险线索'],
-        ['策略编排', '把市场信号压缩为可执行的战术意图'],
-        ['风控仲裁', '限制风险敞口，模拟审核执行阈值'],
-        ['执行协同', '通过 OKX Agent Trade Kit 作为执行中枢做视觉演示'],
-      ]);
-    }
-
-    function createMissionCards(items) {
-      missionGrid.innerHTML = items.map((item, idx) => `
-        <div class="mission-card">
-          <div class="mission-top">
-            <div class="mission-title">${idx + 1}. ${item[0]}</div>
-            <div class="chip">Phase ${idx + 1}</div>
-          </div>
-          <div class="mission-meta">${item[1]}</div>
-        </div>
-      `).join('');
-    }
-
-    function pushLog(actor, content, type = 'info') {
-      const item = document.createElement('div');
-      item.className = 'log-item';
-      item.innerHTML = `
-        <div class="meta"><span>${actor}</span><span>${new Date().toLocaleTimeString('zh-CN', {hour12:false})}</span></div>
-        <div class="content">${content}</div>
-      `;
-      logList.appendChild(item);
-      while (logList.children.length > 12) logList.removeChild(logList.firstChild);
-      logList.scrollTop = logList.scrollHeight;
-    }
-
-    function scrollComms(force = false) {
-      requestAnimationFrame(() => {
-        const nearBottom = bubbleStream.scrollHeight - bubbleStream.scrollTop - bubbleStream.clientHeight < 120;
-        if (force || nearBottom) {
-          bubbleStream.scrollTop = bubbleStream.scrollHeight;
-          requestAnimationFrame(() => {
-            bubbleStream.scrollTop = bubbleStream.scrollHeight;
-          });
-        }
-      });
-    }
-
-    function trimComms() {
-      while (bubbleStream.children.length > 12) {
-        const removable = [...bubbleStream.children].find(el => !el.classList.contains('system-note'));
-        bubbleStream.removeChild(removable || bubbleStream.firstChild);
-      }
-    }
-
-    async function createMissionRun(mission, mode) {
-      const res = await fetch('/api/mission/runs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mission, mode })
-      });
-      const data = await res.json();
-      if (!data?.ok) throw new Error(data?.error || 'Failed to create mission run');
-      return data.run;
-    }
-
-    async function fetchRun(runId) {
-      const res = await fetch(`/api/mission/runs/${runId}`);
-      const data = await res.json();
-      if (!data?.ok) throw new Error(data?.error || 'Failed to fetch run');
-      return data.run;
-    }
-
-    function renderRunEvents(run) {
-      const events = run.events || [];
-      for (const event of events.slice(renderedEventCount)) {
-        pushBubble(event.actor || '系统', event.content || '', event.side || 'left', event.theme || 'intel');
-      }
-      renderedEventCount = events.length;
-    }
-
-    function renderRunState(run) {
-      if (run.heroSubtitle) document.getElementById('heroSubtitle').textContent = run.heroSubtitle;
-      if (run.plan?.riskText) riskText.textContent = run.plan.riskText;
-      if (run.plan?.execution?.length) busText.textContent = run.plan.execution.join('；');
-      if (run.mission) intentText.textContent = `当前作战任务：${run.mission}`;
-      if (run.conclusionHtml) {
-        conclusionChip.textContent = 'Ready';
-        conclusionText.innerHTML = run.conclusionHtml;
-        pinConclusionToEnd();
-      }
-      const states = run.agentStates || [];
-      states.forEach(state => setAgentState(state.key, state));
-      const avgPct = states.length ? states.reduce((acc, s) => acc + Number(s.pct || 0), 0) / states.length : 0;
-      busProgress.style.width = `${Math.max(4, Math.min(100, avgPct))}%`;
-      riskProgress.style.width = `${Math.max(12, Math.min(100, avgPct * 0.92))}%`;
-      if (run.status === 'completed') {
-        missionState.textContent = '战备完成';
-        logMeta.textContent = '本轮任务已完成';
-        execChip.textContent = 'Ready';
-        riskChip.textContent = 'Stable';
-        intentChip.textContent = 'Delivered';
-        conclusionChip.textContent = 'Ready';
-      }
-    }
-
-    async function watchMissionRun(runId, ticket) {
-      while (ticket === activeRun && currentRunId === runId) {
-        const run = await fetchRun(runId);
-        renderRunEvents(run);
-        renderRunState(run);
-        if (run.status === 'completed' || run.status === 'failed') break;
-        await new Promise(resolve => setTimeout(resolve, 700));
-      }
-    }
-
-    function pinConclusionToEnd() {
-      const el = document.getElementById('conclusionBubble');
-      if (!el) return;
-      bubbleStream.appendChild(el);
-      scrollComms(true);
-    }
-
-    function pushBubble(actor, content, side = 'left', theme = 'intel') {
-      const item = document.createElement('div');
-      item.className = `bubble ${side} ${theme}`;
-      item.innerHTML = `<div class="bubble-inner"><div class="bubble-head">${actor}</div><div class="bubble-copy">${content}</div></div>`;
-      bubbleStream.appendChild(item);
-      trimComms();
-      scrollComms(true);
-    }
-
-    function pushTypingBubble(actor, side = 'left', theme = 'strategy', ms = 900) {
-      const item = document.createElement('div');
-      item.className = `bubble ${side} ${theme} typing`;
-      item.innerHTML = `<div class="bubble-inner"><div class="bubble-head">${actor}</div><div class="bubble-copy"><span class="typing-dots"><i></i><i></i><i></i></span></div></div>`;
-      bubbleStream.appendChild(item);
-      scrollComms(true);
-      setTimeout(() => item.remove(), ms);
-    }
-
-    function setDramaState({ negotiation, negotiationHint, approval, approvalHint, signal, signalHint }) {
-      if (negotiation) negotiationState.textContent = negotiation;
-      if (negotiationHint) negotiationSub.textContent = negotiationHint;
-      if (approval) approvalState.textContent = approval;
-      if (approvalHint) approvalSub.textContent = approvalHint;
-      if (signal) signalState.textContent = signal;
-      if (signalHint) signalSub.textContent = signalHint;
-    }
-
-    function triggerApprovalStamp(text = 'APPROVED') {
-      approvalStamp.textContent = text;
-      approvalStamp.classList.remove('show');
-      void approvalStamp.offsetWidth;
-      approvalStamp.classList.add('show');
-    }
-
-    function flashNode(key, ms = 1200) {
-      const el = document.getElementById(`node-${key}`);
-      if (!el) return;
-      el.classList.add('active');
-      setTimeout(() => el.classList.remove('active'), ms);
-    }
-
-    function flashBeam(name, ms = 1100) {
-      const beam = document.getElementById(`beam-${name}`);
-      const packet = document.getElementById(`packet-${name}`);
-      if (beam) beam.classList.add('active');
-      if (packet) packet.classList.add('active');
-      setTimeout(() => {
-        if (beam) beam.classList.remove('active');
-        if (packet) packet.classList.remove('active');
-      }, ms);
-    }
-
-    function setAgentState(key, { badge, status, pct, note }) {
-      const cardEl = document.getElementById(`agent-${key}`);
-      const badgeEl = document.getElementById(`badge-${key}`);
-      const statusEl = document.getElementById(`status-${key}`);
-      const pctEl = document.getElementById(`pct-${key}`);
-      const barEl = document.getElementById(`bar-${key}`);
-      const noteEl = document.getElementById(`note-${key}`);
-      if (badge) badgeEl.textContent = badge;
-      if (status) statusEl.textContent = status;
-      if (typeof pct === 'number') {
-        const busy = pct > 0 && pct < 100;
-        pctEl.textContent = `${pct}%`;
-        barEl.style.width = `${pct}%`;
-        cardEl.classList.toggle('active-card', busy);
-        cardEl.classList.toggle('busy', busy);
-      }
-      if (note && noteEl) {
-        noteEl.textContent = note;
-      }
-    }
-
-    function setAgentSpeech(key, text, typing = false, ms = 1600) {
-      const el = document.getElementById(`speech-${key}`);
-      if (!el) return;
-      if (typing) {
-        el.className = 'agent-bubble show typing';
-        el.innerHTML = `<small>${agents.find(a => a.key === key)?.role || 'Agent'}</small><span class="typing-dots"><i></i><i></i><i></i></span>`;
-      } else {
-        el.className = 'agent-bubble show';
-        el.innerHTML = `<small>${agents.find(a => a.key === key)?.role || 'Agent'}</small>${text}`;
-      }
-      clearTimeout(el._timer);
-      el._timer = setTimeout(() => {
-        el.className = 'agent-bubble';
-        el.innerHTML = '';
-      }, ms);
-    }
-
-    function resetBoard() {
-      agents.forEach(agent => {
-        setAgentState(agent.key, {
-          badge: 'Standby',
-          status: '等待新任务',
-          pct: 0,
-          note: agent.note,
-        });
-      });
-      missionState.textContent = '待命';
-      logMeta.textContent = '等待指令';
-      execChip.textContent = 'Idle';
-      riskChip.textContent = 'Stable';
-      intentChip.textContent = 'Awaiting';
-      conclusionChip.textContent = 'Pending';
-      busProgress.style.width = '4%';
-      riskProgress.style.width = '12%';
-      busText.textContent = '等待来自策略与风控 Agent 的共识信号。';
-      riskText.textContent = '当前无激活任务，风险边界处于空闲监测状态。';
-      intentText.textContent = '在输入框下达任务后，系统会生成多 Agent 协作叙事、执行路径与完整任务结论。';
-      conclusionText.textContent = '等待多 Agent 形成结论后，在这里输出更完整的策略纪要、风险摘要和执行建议。';
-      scrollComms(true);
-      setDramaState({
-        negotiation: '待命',
-        negotiationHint: '尚未进入多 Agent 协商',
-        approval: '未授权',
-        approvalHint: '等待风控批准',
-        signal: 'LOW',
-        signalHint: '指挥总线空闲',
-      });
-      approvalStamp.classList.remove('show');
-      agents.forEach(agent => {
-        const speech = document.getElementById(`speech-${agent.key}`);
-        if (speech) {
-          speech.className = 'agent-bubble';
-          speech.innerHTML = '';
-        }
-      });
-      ['intel','chain','strategy','risk','review','exec','core'].forEach(k => {
-        const el = document.getElementById(`node-${k}`);
-        if (el) el.classList.remove('active');
-      });
-      document.querySelectorAll('.beam.active,.packet.active').forEach(el => el.classList.remove('active'));
-    }
-
-    async function startMission() {
-      activeRun += 1;
-      const ticket = activeRun;
-      const mission = commandInput.value.trim() || '监测市场并生成低风险执行方案';
-      const mode = document.getElementById('presetMode').value;
-      missionId.textContent = `WAR-${String(Date.now()).slice(-3)}`;
-      missionState.textContent = '执行中';
-      logMeta.textContent = '多 Agent 正在协同作战';
-      execChip.textContent = 'Routing';
-      riskChip.textContent = 'Armed';
-      intentChip.textContent = mode.toUpperCase();
-      conclusionChip.textContent = 'Building';
-      busText.textContent = '执行总线已激活，等待多 Agent 共识签发模拟动作。';
-      riskText.textContent = '风控包线已升至战备状态，将持续审阅所有执行建议。';
-      intentText.textContent = `当前作战任务：${mission}`;
-      conclusionText.textContent = '多 Agent 正在收集情报、推演方案、审核风控，并准备形成完整的作战结论。';
-      scrollComms(true);
-      createMissionCards([
-        ['信号拆解', `解析指令意图：${mission}`],
-        ['跨 Agent 协同', '情报、链上、策略、风控、执行、复盘模块同步工作'],
-        ['执行协同', '通过 OKX Agent Trade Kit 生成执行路径、订单链路与权限流转'],
-        ['复盘输出', '生成作战纪要、下一步关注点和风险摘要'],
-      ]);
-      pushLog('指挥官', `已下达任务：${mission}`, 'command');
-      resetAgentForRun();
-      renderedEventCount = 0;
-      try {
-        const run = await createMissionRun(mission, mode);
-        if (ticket !== activeRun) return;
-        currentRunId = run.id;
-        await watchMissionRun(run.id, ticket);
-      } catch (error) {
-        pushLog('系统', `任务启动失败：${error.message || error}`, 'error');
-        pushBubble('系统广播', `任务启动失败：${error.message || error}`, 'right', 'review');
-      }
-    }
-
-    function resetAgentForRun() {
-      agents.forEach(agent => setAgentState(agent.key, { badge: 'Queued', status: '任务排队中', pct: 2 }));
-      busProgress.style.width = '10%';
-      riskProgress.style.width = '24%';
-    }
-
-    function step(runId, delay, fn) {
-      setTimeout(() => { if (runId === activeRun) fn(); }, delay);
-    }
-
-    async function fetchMissionPlan(mission, mode) {
-      try {
-        const res = await fetch('/api/mission/plan', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mission, mode })
-        });
-        const data = await res.json();
-        return data?.plan || null;
-      } catch (error) {
-        console.error('mission plan failed', error);
-        return null;
-      }
-    }
-
-    function runSequence(runId, mission, mode) {
-      fetchMissionPlan(mission, mode).then(plan => {
-        if (runId !== activeRun) return;
-        const tone = plan?.tones || {
-          alpha: ['热点追踪', '机会窗口', '高置信线索'],
-          risk: ['波动抑制', '防守信号', '风险走廊'],
-          swing: ['区间结构', '波段节奏', '择时信号'],
-          ops: ['多市场联动', '任务编排', '战区切换'],
-        }[mode] || ['综合情报', '策略交叉验证', '执行编排'];
-        const asset = plan?.asset || 'ETH';
-        const snapshot = plan?.snapshot || null;
-        if (snapshot) {
-          document.getElementById('heroSubtitle').textContent = `以 OKX Agent Trade Kit 为执行中枢，当前聚焦 ${asset} 实时任务：现价 ${Number(snapshot.last).toFixed(2)}，24h ${Number(snapshot.change24hPct).toFixed(2)}%，波动率代理 ${Number(snapshot.volatilityPct).toFixed(2)}%。`;
-        }
-
-      step(runId, 900, () => {
-        flashNode('intel');
-        flashBeam('intel-core');
-        setDramaState({ negotiation: '启动中', negotiationHint: '情报层正在解码任务意图', signal: 'MED', signalHint: '初级通讯信号已点亮' });
-        setAgentState('intel', { badge: 'Active', status: '解析叙事信号', pct: 18, note: `识别任务关键词，抽取「${tone[0]} / ${tone[1]} / ${tone[2]}」相关线索。` });
-        pushLog('情报总监', `开始拆解指令关键词并生成市场叙事地图：${mission}`);
-        pushTypingBubble('情报总监', 'left', 'intel', 820);
-        setAgentSpeech('intel', '', true, 820);
-        pushBubble('情报总监 → OKX CORE', plan?.intel || `已收到指令，正在提取「${tone[0]} / ${tone[1]} / ${tone[2]}」三类高优先级信号。`, 'left', 'intel');
-        setAgentSpeech('intel', `锁定 ${tone[0]} / ${tone[1]} 信号`, false, 2200);
-      });
-      step(runId, 900, () => {
-        flashNode('chain');
-        flashBeam('chain-core');
-        setDramaState({ negotiation: '协商中', negotiationHint: '情报层与链上层正在交换线索', signal: 'HIGH', signalHint: '多路信号汇入中枢' });
-        setAgentState('chain', { badge: 'Scanning', status: '链上资金侦察', pct: 26, note: '模拟跟踪聪明钱流向、大额转账、热点资产注意力迁移。' });
-        pushLog('链上侦察官', '已接管链上情报流，正在生成大额资金和风险异常热力图。');
-        pushTypingBubble('链上侦察官', 'left', 'chain', 860);
-        setAgentSpeech('chain', '', true, 860);
-        pushBubble('链上侦察官', plan?.flow || '链上监测已启动，正在扫描鲸鱼动向、热钱包迁移与风险地址密度。', 'left', 'chain');
-        setAgentSpeech('chain', '鲸鱼热区扫描中…', false, 2200);
-        busProgress.style.width = '22%';
-      });
-      step(runId, 1500, () => {
-        flashNode('strategy');
-        flashBeam('strategy-core');
-        setDramaState({ negotiation: '推演中', negotiationHint: '策略层正在生成多分支作战草案', signal: 'HIGH', signalHint: '策略演算占用主通道' });
-        setAgentState('intel', { badge: 'Ready', status: '情报已上桌', pct: 42, note: '市场噪音已压缩为结构化情报，送往策略中枢。' });
-        setAgentState('strategy', { badge: 'Thinking', status: '生成作战方案', pct: 28, note: `把「${tone[0]}」与「${tone[1]}」交叉为执行意图。` });
-        pushLog('策略指挥官', '正在将市场情报翻译为多层策略卡：方向、节奏、仓位、触发条件。');
-        pushTypingBubble('策略指挥官', 'right', 'strategy', 980);
-        setAgentSpeech('strategy', '', true, 980);
-        pushBubble('策略指挥官', plan?.strategy || '已汇总情报输入，开始拟定进攻 / 防守 / 退出三段式战术路径。', 'right', 'strategy');
-        setAgentSpeech('strategy', '编排三段式战术…', false, 2200);
-      });
-      step(runId, 8400, () => {
-        flashNode('risk');
-        flashBeam('strategy-risk');
-        flashBeam('risk-core');
-        setDramaState({ negotiation: '审议中', negotiationHint: '风控层正在进行权限审核', approval: '审查中', approvalHint: '等待风险官签发执行权限', signal: 'HIGH', signalHint: '审计链路已上线' });
-        setAgentState('risk', { badge: 'Reviewing', status: '风控仲裁', pct: 35, note: '审核仓位暴露、剧烈波动、事件驱动和执行阈值。' });
-        pushLog('风控总监', '已锁定高风险边界，准备对执行计划进行条件审阅。');
-        pushTypingBubble('风控总监', 'right', 'risk', 900);
-        setAgentSpeech('risk', '', true, 900);
-        pushBubble('风控总监', plan?.riskText || '收到策略提案，正在核对风险预算、容错带和极端波动暴露。', 'right', 'risk');
-        setAgentSpeech('risk', '权限审查中', false, 2200);
-        riskProgress.style.width = '48%';
-      });
-      step(runId, 3200, () => {
-        flashNode('core');
-        flashNode('exec');
-        flashBeam('core-exec');
-        setDramaState({ negotiation: '共识形成', negotiationHint: '多 Agent 已形成统一战术方案', approval: '待签发', approvalHint: '执行总线等待最终授权', signal: 'MAX', signalHint: '主战区带宽已满载' });
-        setAgentState('strategy', { badge: 'Consensus', status: '共识形成', pct: 56, note: '策略层已形成阶段性共识，准备请求执行总线。' });
-        setAgentState('exec', { badge: 'Routing', status: '调用执行总线', pct: 32, note: '通过 OKX Agent Trade Kit 模拟构建订单、网格、条件单与执行路径。' });
-        pushLog('执行官', '执行中枢已上线，正在把策略共识转换为 OKX 执行路径可视化。');
-        pushTypingBubble('OKX CORE', 'left', 'exec', 1000);
-        setAgentSpeech('exec', '', true, 1000);
-        pushBubble('OKX CORE', '已收到作战共识，开始渲染订单路径、网格部署与风控护栏画面。', 'left', 'exec');
-        setAgentSpeech('exec', '接管执行总线', false, 2400);
-        execChip.textContent = 'Online';
-        busProgress.style.width = '56%';
-      });
-      step(runId, 4300, () => {
-        flashNode('exec');
-        flashBeam('core-exec');
-        triggerApprovalStamp('APPROVED');
-        setDramaState({ negotiation: '已授权', negotiationHint: '作战权限已下发到执行层', approval: '已批准', approvalHint: '风控官已签发执行许可', signal: 'MAX', signalHint: '执行总线已接管全链路' });
-        setAgentState('risk', { badge: 'Approved', status: '风控放行', pct: 68, note: '风险边界已收敛，允许低风险演示级执行。' });
-        setAgentState('exec', { badge: 'Executing', status: '执行链路运行中', pct: 62, note: '创建分批建仓、风控护栏、动态止盈止损与网格调整。' });
-        pushLog('风控总监', '风控条件通过，执行层已获得有限授权，允许继续推进。');
-        pushBubble('风控总监 → 执行官', '授权通过：允许低风险级别的执行协同，保持风险护栏在线。', 'right', 'risk');
-        setAgentSpeech('risk', '权限已批准', false, 2200);
-        pushBubble('执行官', '已进入执行阶段：分批建仓、条件单、风控围栏、网格调度同步推进。', 'right', 'exec');
-        setAgentSpeech('exec', '开始执行任务链路', false, 2600);
-        riskChip.textContent = 'Guarded';
-        riskProgress.style.width = '72%';
-      });
-      step(runId, 19600, () => {
-        flashNode('review');
-        flashBeam('core-review');
-        setDramaState({ negotiation: '纪要生成', negotiationHint: '复盘层正在汇总本轮多 Agent 共识', approval: '已批准', approvalHint: '执行许可仍维持有效', signal: 'HIGH', signalHint: '通讯强度开始回落' });
-        setAgentState('review', { badge: 'Reviewing', status: '生成战后纪要', pct: 44, note: '归纳有效信号、噪音因子与下一轮任务建议。' });
-        setAgentState('exec', { badge: 'Projected', status: '执行链路完成', pct: 84, note: '执行路径、任务流转与部门协同已形成闭环。' });
-        pushLog('复盘官', '正在提取本轮模拟中的有效线索，并生成下一步优化建议。');
-        pushTypingBubble('复盘官', 'left', 'review', 900);
-        setAgentSpeech('review', '', true, 900);
-        pushBubble('复盘官', '已开始生成战后纪要：保留有效信号、隔离噪音，并给出下一轮作战建议。', 'left', 'review');
-        setAgentSpeech('review', '正在撰写战后纪要', false, 2400);
-        conclusionChip.textContent = 'Compiling';
-        conclusionText.textContent = plan ? `正在汇总 ${plan.asset} 的实时市场快照、执行路径与风险护栏，准备形成完整结论。` : '正在汇总情绪线索、链上异动、战术共识与风控条件，准备形成更完整的结论。';
-        busText.textContent = '执行总线已完成一轮完整任务编排，当前作战链路已形成闭环。';
-        busProgress.style.width = '88%';
-      });
-      step(runId, 21600, () => {
-        conclusionChip.textContent = 'Ready';
-        conclusionText.innerHTML = plan?.conclusionHtml || `
-          <strong>【任务结论】</strong><br>
-          1. <strong>核心判断：</strong>当前作战任务中，情报层已将 <strong>${tone[0]}</strong> 与 <strong>${tone[1]}</strong> 识别为优先级最高的两类信号，说明市场正在从分散噪音向可执行机会收敛。<br><br>
-          2. <strong>策略建议：</strong>策略层建议采用“<strong>分阶段推进 + 动态确认</strong>”模式，不追求一次性重仓，而是先建立轻量前哨仓位，再根据后续信号强化程度决定是否扩大战区投入。<br><br>
-          3. <strong>风控约束：</strong>风控层要求保留退出缓冲，并持续监测波动率放大、链上资金方向逆转、情绪信号失真、突发事件驱动等风险项；一旦任一项超出阈值，应立即降低执行优先级。<br><br>
-          4. <strong>执行链路：</strong>执行层已通过 <strong>OKX Agent Trade Kit</strong> 完成任务编排，当前最适合的动作是：先建立低风险级别的基础行动路径，再把订单管理、风控护栏、条件触发与阶段性退出规则绑定到统一执行总线。<br><br>
-          5. <strong>协同结论：</strong>多个 Agent 的共识并不是“立刻全力推进”，而是“<strong>以 ${tone[2]} 的后续强化为决定性触发条件</strong>”，在信号继续增强时提高执行等级，在信号走弱时退回观察态。<br><br>
-          6. <strong>下一步重点：</strong>继续追踪 ${tone[2]} 是否增强、链上流向是否同步、风险暴露是否可控，以及执行链路能否维持稳定闭环。当前建议保持战备状态，等待下一个高置信强化点出现。
-        `;
-        pushLog('系统', '多 Agent 已形成最终结论摘要，正在回写到作战面板。');
-        pushBubble('系统广播', '最终结论已生成：建议维持低风险推进，同时持续监控关键强化信号。', 'right', 'review');
-        pinConclusionToEnd();
-      });
-      step(runId, 23600, () => {
-        agents.forEach((agent, idx) => setAgentState(agent.key, { badge: 'Synced', status: '协同完成', pct: 100, note: idx === 4 ? '执行链路已闭环，等待新的作战命令。' : '本轮协同完成，等待新的作战命令。' }));
-        flashNode('core', 1800);
-        setDramaState({ negotiation: '完成', negotiationHint: '全部 Agent 已完成本轮作战协同', approval: '归档', approvalHint: '本轮授权已封存入作战日志', signal: 'LOW', signalHint: '战区恢复待命状态' });
-        missionState.textContent = '战备完成';
-        logMeta.textContent = '全部 Agent 已完成一次协同展示';
-        execChip.textContent = 'Ready';
-        riskChip.textContent = 'Stable';
-        intentChip.textContent = 'Delivered';
-        busProgress.style.width = '100%';
-        riskProgress.style.width = '100%';
-        pushLog('系统', '作战室已完成本轮多 Agent 协同闭环。');
-        pushBubble('系统广播', '本轮多 Agent 协同已完成，所有部门已回到战备待命状态。', 'right', 'review');
-        pinConclusionToEnd();
-      });
-      });
-    }
-
-    function toggleDemo() {
-      if (autoLoop) {
-        clearInterval(autoLoop);
-        autoLoop = null;
-        demoBtn.textContent = '◎';
-        demoBtn.title = '切换循环模式';
-        pushLog('系统', '循环演示已暂停。');
-        return;
-      }
-      demoBtn.textContent = '■';
-      demoBtn.title = '停止循环';
-      const presets = [
-        '监控 BTC 情绪与期权波动，生成低风险波段执行计划。',
-        '追踪 ETH 叙事与链上资金流，形成多阶段进攻方案。',
-        '监控 MEME 赛道热度，输出短周期风控与退出策略。'
-      ];
-      let idx = 0;
-      commandInput.value = presets[idx];
-      startMission();
-      autoLoop = setInterval(() => {
-        idx = (idx + 1) % presets.length;
-        commandInput.value = presets[idx];
-        startMission();
-      }, 29500);
-    }
-
-    init();
-  </script>
 </body>
 </html>

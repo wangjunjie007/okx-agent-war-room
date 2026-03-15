@@ -7,24 +7,36 @@ A multi-agent trading command center built around the idea that trading AI shoul
 This project turns a trading mission into a multi-agent workflow:
 
 - **Intel Agent** — reads market narrative and momentum
-- **Flow Agent** — inspects order-book / flow proxy signals
+- **Chain Agent** — inspects flow, trades, basis, and derivatives proxies
 - **Strategy Agent** — turns signals into tactical paths
 - **Risk Agent** — applies execution guardrails
-- **Execution Agent** — converts consensus into an OKX execution playbook
-- **Review Agent** — writes the final mission conclusion
+- **Execution Agent** — converts consensus into an Execution Bridge plan
+- **Review Agent** — writes the final mission conclusion and replay archive
 
-The current release is a **working open-source MVP**:
-- browser UI for the War Room
-- backend mission engine
-- persisted mission runs and event history
-- live market snapshot from OKX public market APIs
-- generated multi-agent plan, execution path, and conclusion summary
+## Current release
+
+The repo is now a **Stage 3 modular MVP**:
+
+- modular backend app/router layout
+- six independent backend agent modules
+- richer OKX public market inputs:
+  - spot ticker
+  - swap ticker / basis
+  - candles
+  - order book imbalance
+  - recent trades buy ratio
+  - open interest
+  - funding rate
+- persisted mission runs and replay frames
+- frontend mission archive with one-click replay
+- execution bridge panel with routes / guardrails / triggers
 
 ## Stack
 
-- Frontend: vanilla HTML/CSS/JS
+- Frontend: vanilla HTML/CSS/JS modules
 - Backend: Node.js + Express
 - Data: OKX public market endpoints
+- Storage: JSON files under `data/runs/`
 
 ## Run locally
 
@@ -65,6 +77,10 @@ http://127.0.0.1:8848/
 
 `GET /api/mission/runs/:id/events`
 
+### Get replay frames
+
+`GET /api/mission/runs/:id/replay`
+
 Body:
 
 ```json
@@ -74,22 +90,25 @@ Body:
 }
 ```
 
+## Repo layout
+
+```text
+public/
+  app.js
+  js/
+    api.js
+    constants.js
+src/
+  agents/
+  lib/
+  routes/
+  app.js
+  server.js
+```
+
 ## Notes
 
-This repository intentionally separates:
-- **mission orchestration**
-- **agent reasoning layers**
-- **execution playbook generation**
-- **presentation layer**
-
-The execution layer currently generates structured execution plans and guardrails rather than sending real orders. That keeps the repo safe to run publicly while preserving the complete end-to-end coordination model.
-
-## Why this project exists
-
-Most trading AI tools answer questions. This project explores a different idea:
-
-> the future trading interface is not one model giving one answer —
-> it is a team of AI agents coordinating analysis, risk, execution, and review.
+The execution layer still produces structured execution plans rather than real orders. That keeps the repo safe to run publicly while preserving the end-to-end coordination model.
 
 ## License
 
