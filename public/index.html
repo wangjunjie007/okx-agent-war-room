@@ -890,6 +890,8 @@
 
     let activeRun = 0;
     let autoLoop = null;
+    let currentRunId = null;
+    let renderedEventCount = 0;
 
     function init() {
       renderAgents();
@@ -1021,6 +1023,67 @@
       while (bubbleStream.children.length > 12) {
         const removable = [...bubbleStream.children].find(el => !el.classList.contains('system-note'));
         bubbleStream.removeChild(removable || bubbleStream.firstChild);
+      }
+    }
+
+    async function createMissionRun(mission, mode) {
+      const res = await fetch('/api/mission/runs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mission, mode })
+      });
+      const data = await res.json();
+      if (!data?.ok) throw new Error(data?.error || 'Failed to create mission run');
+      return data.run;
+    }
+
+    async function fetchRun(runId) {
+      const res = await fetch(`/api/mission/runs/${runId}`);
+      const data = await res.json();
+      if (!data?.ok) throw new Error(data?.error || 'Failed to fetch run');
+      return data.run;
+    }
+
+    function renderRunEvents(run) {
+      const events = run.events || [];
+      for (const event of events.slice(renderedEventCount)) {
+        pushBubble(event.actor || '系统', event.content || '', event.side || 'left', event.theme || 'intel');
+      }
+      renderedEventCount = events.length;
+    }
+
+    function renderRunState(run) {
+      if (run.heroSubtitle) document.getElementById('heroSubtitle').textContent = run.heroSubtitle;
+      if (run.plan?.riskText) riskText.textContent = run.plan.riskText;
+      if (run.plan?.execution?.length) busText.textContent = run.plan.execution.join('；');
+      if (run.mission) intentText.textContent = `当前作战任务：${run.mission}`;
+      if (run.conclusionHtml) {
+        conclusionChip.textContent = 'Ready';
+        conclusionText.innerHTML = run.conclusionHtml;
+        pinConclusionToEnd();
+      }
+      const states = run.agentStates || [];
+      states.forEach(state => setAgentState(state.key, state));
+      const avgPct = states.length ? states.reduce((acc, s) => acc + Number(s.pct || 0), 0) / states.length : 0;
+      busProgress.style.width = `${Math.max(4, Math.min(100, avgPct))}%`;
+      riskProgress.style.width = `${Math.max(12, Math.min(100, avgPct * 0.92))}%`;
+      if (run.status === 'completed') {
+        missionState.textContent = '战备完成';
+        logMeta.textContent = '本轮任务已完成';
+        execChip.textContent = 'Ready';
+        riskChip.textContent = 'Stable';
+        intentChip.textContent = 'Delivered';
+        conclusionChip.textContent = 'Ready';
+      }
+    }
+
+    async function watchMissionRun(runId, ticket) {
+      while (ticket === activeRun && currentRunId === runId) {
+        const run = await fetchRun(runId);
+        renderRunEvents(run);
+        renderRunState(run);
+        if (run.status === 'completed' || run.status === 'failed') break;
+        await new Promise(resolve => setTimeout(resolve, 700));
       }
     }
 
@@ -1166,9 +1229,9 @@
       document.querySelectorAll('.beam.active,.packet.active').forEach(el => el.classList.remove('active'));
     }
 
-    function startMission() {
+    async function startMission() {
       activeRun += 1;
-      const runId = activeRun;
+      const ticket = activeRun;
       const mission = commandInput.value.trim() || '监测市场并生成低风险执行方案';
       const mode = document.getElementById('presetMode').value;
       missionId.textContent = `WAR-${String(Date.now()).slice(-3)}`;
@@ -1191,7 +1254,16 @@
       ]);
       pushLog('指挥官', `已下达任务：${mission}`, 'command');
       resetAgentForRun();
-      runSequence(runId, mission, mode);
+      renderedEventCount = 0;
+      try {
+        const run = await createMissionRun(mission, mode);
+        if (ticket !== activeRun) return;
+        currentRunId = run.id;
+        await watchMissionRun(run.id, ticket);
+      } catch (error) {
+        pushLog('系统', `任务启动失败：${error.message || error}`, 'error');
+        pushBubble('系统广播', `任务启动失败：${error.message || error}`, 'right', 'review');
+      }
     }
 
     function resetAgentForRun() {

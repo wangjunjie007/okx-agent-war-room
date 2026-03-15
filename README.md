@@ -16,6 +16,7 @@ This project turns a trading mission into a multi-agent workflow:
 The current release is a **working open-source MVP**:
 - browser UI for the War Room
 - backend mission engine
+- persisted mission runs and event history
 - live market snapshot from OKX public market APIs
 - generated multi-agent plan, execution path, and conclusion summary
 
@@ -47,6 +48,22 @@ http://127.0.0.1:8848/
 ### Build mission plan
 
 `POST /api/mission/plan`
+
+### Create persisted mission run
+
+`POST /api/mission/runs`
+
+### List mission runs
+
+`GET /api/mission/runs`
+
+### Get mission run
+
+`GET /api/mission/runs/:id`
+
+### Get mission run events
+
+`GET /api/mission/runs/:id/events`
 
 Body:
 

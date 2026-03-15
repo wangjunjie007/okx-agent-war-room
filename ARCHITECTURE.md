@@ -28,3 +28,10 @@
 
 ## Design principle
 This project is intentionally structured so the execution layer can later be replaced with real broker / exchange actions while keeping the UI and agent roles stable.
+
+
+## Stage 2 additions
+- persisted run objects in `data/runs/*.json`
+- backend async run engine for multi-agent mission progression
+- frontend polling-based playback of live run state
+- run history and event replay API surface
