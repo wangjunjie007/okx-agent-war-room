@@ -44,7 +44,7 @@
     .app {
       height: 100%;
       display: grid;
-      grid-template-rows: auto auto 1fr;
+      grid-template-rows: auto auto auto 1fr;
       gap: 12px;
       padding: 12px;
     }
@@ -746,11 +746,63 @@
       font-size: 11px;
     }
 
+
+    .watchlist-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .watch-card {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      backdrop-filter: blur(18px);
+      box-shadow: var(--shadow);
+      border-radius: 16px;
+      padding: 12px 14px;
+    }
+    .watch-card .asset { font-size: 12px; letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
+    .watch-card .price { margin-top: 6px; font-size: 20px; font-weight: 800; }
+    .watch-card .delta { margin-top: 4px; font-size: 12px; color: #cde4ff; }
+    .watch-card .sub { margin-top: 6px; font-size: 11px; color: var(--muted); }
+    #execPanel { overflow: auto; }
+    .exec-grid {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .leaderboard-list {
+      display: grid;
+      gap: 8px;
+      max-height: 220px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+    .leaderboard-item {
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(255,255,255,.03);
+      border: 1px solid rgba(255,255,255,.06);
+    }
+    .leaderboard-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+    .leaderboard-rank { color: var(--gold); font-weight: 800; }
+    .sim-grid {
+      display: grid;
+      gap: 8px;
+    }
+
     @media (max-width: 1280px) {
       .workspace, .hero-grid, .stack { grid-template-columns: 1fr; }
       .agent-grid { grid-template-columns: repeat(2, 1fr); }
       .command-bar { grid-template-columns: 1fr; }
       .activity { grid-template-columns: repeat(2, 1fr); }
+      .watchlist-strip, .exec-grid { grid-template-columns: 1fr; }
     }
     @media (max-height: 1200px) {
       .app { gap: 10px; padding: 10px; }
@@ -825,6 +877,13 @@
       </select>
       <button id="runBtn" class="button primary">发布指令</button>
       <button id="demoBtn" class="button secondary" aria-label="切换循环模式" title="切换循环模式">◎</button>
+    </section>
+
+    <section class="watchlist-strip" id="watchlistStrip">
+      <div class="watch-card"><div class="asset">BTC</div><div class="price">--</div><div class="delta">等待数据</div><div class="sub">Score --</div></div>
+      <div class="watch-card"><div class="asset">ETH</div><div class="price">--</div><div class="delta">等待数据</div><div class="sub">Score --</div></div>
+      <div class="watch-card"><div class="asset">SOL</div><div class="price">--</div><div class="delta">等待数据</div><div class="sub">Score --</div></div>
+      <div class="watch-card"><div class="asset">OKB</div><div class="price">--</div><div class="delta">等待数据</div><div class="sub">Score --</div></div>
     </section>
 
     <section class="workspace">
@@ -920,7 +979,7 @@
             <h3>执行总览</h3>
             <span>Execution Overview</span>
           </div>
-          <div style="display:grid; gap:14px;">
+          <div class="exec-grid">
             <div class="mission-card">
               <div class="mission-top"><div class="mission-title">Execution Bus</div><div class="chip" id="execChip">Idle</div></div>
               <div class="mission-meta" id="busText">等待来自策略与风控 Agent 的共识信号。</div>
@@ -960,6 +1019,21 @@
                 <div class="metric-row"><span>回撤</span><span id="backtestDrawdown">--</span></div>
                 <div class="mission-meta" id="backtestSummary">等待生成回测概览。</div>
               </div>
+            </div>
+            <div class="mission-card">
+              <div class="mission-top"><div class="mission-title">Execution Simulator</div><div class="chip" id="simChip">Pending</div></div>
+              <div class="sim-grid">
+                <div class="metric-row"><span>Side</span><strong id="simSide">--</strong></div>
+                <div class="metric-row"><span>Entry Zone</span><span id="simEntry">--</span></div>
+                <div class="metric-row"><span>Stop</span><span id="simStop">--</span></div>
+                <div class="metric-row"><span>Targets</span><span id="simTargets">--</span></div>
+                <div class="metric-row"><span>Notional / RR</span><span id="simSize">--</span></div>
+                <div class="mission-meta" id="simSummary">等待生成模拟执行路径。</div>
+              </div>
+            </div>
+            <div class="mission-card">
+              <div class="mission-top"><div class="mission-title">Strategy Leaderboard</div><div class="chip">Top Runs</div></div>
+              <div class="leaderboard-list" id="leaderboardList"></div>
             </div>
             <div class="mission-card">
               <div class="mission-top"><div class="mission-title">Mission Archive</div><div class="chip">Replay</div></div>

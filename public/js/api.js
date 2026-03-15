@@ -33,3 +33,13 @@ export async function fetchAnalytics(runId) {
   const data = await request(`/api/mission/runs/${runId}/analytics`);
   return data.analytics;
 }
+
+export async function fetchWatchlist(assets = ['BTC', 'ETH', 'SOL', 'OKB']) {
+  const data = await request(`/api/market/watchlist?assets=${encodeURIComponent(assets.join(','))}`);
+  return data.assets || [];
+}
+
+export async function fetchLeaderboard(limit = 8) {
+  const data = await request(`/api/analytics/leaderboard?limit=${limit}`);
+  return data.leaderboard || [];
+}

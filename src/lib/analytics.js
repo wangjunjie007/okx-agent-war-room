@@ -60,9 +60,7 @@ export function buildBacktestPreview({ snapshot, bias }) {
   let equity = 1;
   let peak = 1;
   let wins = 0;
-  let losses = 0;
   let trades = 0;
-  let active = 0;
 
   for (let i = 6; i < closes.length - 1; i += 1) {
     const window = closes.slice(i - 6, i);
@@ -80,9 +78,7 @@ export function buildBacktestPreview({ snapshot, bias }) {
     equity *= 1 + ret;
     peak = Math.max(peak, equity);
     trades += 1;
-    active += signal;
     if (ret >= 0) wins += 1;
-    else losses += 1;
   }
 
   const drawdown = peak ? ((peak - equity) / peak) * 100 : 0;
@@ -99,5 +95,52 @@ export function buildBacktestPreview({ snapshot, bias }) {
     summary: trades
       ? `过去 ${closes.length} 小时的简化回测中，共触发 ${trades} 次信号，收益 ${fmtSigned(pnlPct, 2, '%')}，胜率 ${winRate.toFixed(1)}%，最大回撤 ${drawdown.toFixed(2)}%。`
       : '当前参数下未形成足够交易信号，回测更偏向等待。'
+  };
+}
+
+export function buildExecutionSimulator({ snapshot, bias, risk, signalScore, backtest }) {
+  const last = Number(snapshot.last || 0);
+  const volPct = Math.max(Number(snapshot.volatilityPct || 0), 0.4);
+  const side = bias === '偏多' ? 1 : bias === '偏空' ? -1 : 0;
+  const entryBufferPct = clamp(volPct * 0.18, 0.12, 0.75) / 100;
+  const stopPct = clamp(volPct * (risk === 'HIGH' ? 0.9 : risk === 'MED' ? 0.75 : 0.6), 0.45, 2.2) / 100;
+  const target1Pct = stopPct * (signalScore.total >= 68 ? 1.8 : 1.35);
+  const target2Pct = stopPct * (signalScore.total >= 68 ? 2.8 : 2.1);
+  const notionalPct = clamp(signalScore.total * 0.55 - (risk === 'HIGH' ? 18 : risk === 'MED' ? 10 : 4), 8, 55);
+
+  const entryLow = side >= 0 ? last * (1 - entryBufferPct) : last * (1 + entryBufferPct * 0.25);
+  const entryHigh = side >= 0 ? last * (1 + entryBufferPct * 0.2) : last * (1 + entryBufferPct);
+  const stop = side >= 0 ? last * (1 - stopPct) : last * (1 + stopPct);
+  const target1 = side >= 0 ? last * (1 + target1Pct) : last * (1 - target1Pct);
+  const target2 = side >= 0 ? last * (1 + target2Pct) : last * (1 - target2Pct);
+  const rr = stopPct ? target1Pct / stopPct : 0;
+
+  return {
+    side: side > 0 ? 'Long Ladder' : side < 0 ? 'Short Ladder' : 'Neutral Watch',
+    notionalPct: Number(notionalPct.toFixed(1)),
+    entryLow: Number(entryLow.toFixed(2)),
+    entryHigh: Number(entryHigh.toFixed(2)),
+    stop: Number(stop.toFixed(2)),
+    target1: Number(target1.toFixed(2)),
+    target2: Number(target2.toFixed(2)),
+    rewardRisk: Number(rr.toFixed(2)),
+    summary: side === 0
+      ? '当前更适合维持观察态，不建议激活完整模拟执行路径。'
+      : `模拟执行建议：${side > 0 ? '分批做多' : '分批做空'}，名义仓位上限 ${notionalPct.toFixed(1)}%，RR 约 ${rr.toFixed(2)}，并参考回测边际 ${fmtSigned(backtest.pnlPct, 2, '%')} 调整节奏。`
+  };
+}
+
+export function summarizeRunForLeaderboard(run) {
+  return {
+    id: run.id,
+    mission: run.mission,
+    asset: run.plan?.asset || run.summary?.asset || 'N/A',
+    status: run.status,
+    signalScore: Number(run.plan?.signalScore?.total || 0),
+    confidence: run.plan?.signalScore?.confidence || 'N/A',
+    pnlPct: Number(run.plan?.backtest?.pnlPct || 0),
+    winRate: Number(run.plan?.backtest?.winRate || 0),
+    bias: run.plan?.bias || 'N/A',
+    updatedAt: run.updatedAt || run.createdAt
   };
 }

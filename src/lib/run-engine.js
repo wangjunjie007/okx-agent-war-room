@@ -78,10 +78,11 @@ export async function runMission(runId) {
       execution: plan.execution,
       bridgeStatus: plan.executionBridge?.status || 'Watching',
       signalScore: plan.signalScore,
-      backtest: plan.backtest
+      backtest: plan.backtest,
+      simulator: plan.simulator
     },
     executionBridge: plan.executionBridge,
-    archiveSummary: `${plan.asset} · ${plan.bias} · Score ${plan.signalScore?.total || 0} · ${plan.executionBridge?.status || 'Watching'}`,
+    archiveSummary: `${plan.asset} · ${plan.bias} · Score ${plan.signalScore?.total || 0} · PnL ${plan.backtest?.pnlPct || 0}% · ${plan.executionBridge?.status || 'Watching'}`,
     heroSubtitle: plan.heroSubtitle
   });
 
@@ -114,7 +115,7 @@ export async function runMission(runId) {
     },
     {
       agent: 'review',
-      state: makeAgentState('review', 94, '生成最终纪要', '提炼最终结论、任务 replay、评分与回测概览。', 'Reviewing'),
+      state: makeAgentState('review', 94, '生成最终纪要', '提炼最终结论、任务 replay、评分、回测与模拟执行。', 'Reviewing'),
       event: { actor: '复盘官', side: 'left', theme: 'review', content: outputs.review.text }
     }
   ];

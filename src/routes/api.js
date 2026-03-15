@@ -1,4 +1,6 @@
 import express from 'express';
+import { summarizeRunForLeaderboard } from '../lib/analytics.js';
+import { getWatchlistSnapshots } from '../lib/okx.js';
 import { buildReplayFrames } from '../lib/replay.js';
 import { buildMissionPlan } from '../lib/mission-engine.js';
 import { createAndStartRun } from '../lib/run-engine.js';
@@ -9,6 +11,25 @@ export function createApiRouter() {
 
   router.get('/health', (_req, res) => {
     res.json({ ok: true, service: 'okx-agent-war-room', time: new Date().toISOString() });
+  });
+
+  router.get('/market/watchlist', async (req, res) => {
+    try {
+      const assets = String(req.query.assets || 'BTC,ETH,SOL,OKB').split(',').map(item => item.trim()).filter(Boolean);
+      const snapshots = await getWatchlistSnapshots(assets);
+      res.json({ ok: true, assets: snapshots });
+    } catch (error) {
+      res.status(500).json({ ok: false, error: error.message || String(error) });
+    }
+  });
+
+  router.get('/analytics/leaderboard', (req, res) => {
+    const limit = Number(req.query.limit || 8);
+    const items = listRuns(Math.max(limit * 3, limit))
+      .map(summarizeRunForLeaderboard)
+      .sort((a, b) => (b.signalScore - a.signalScore) || (b.pnlPct - a.pnlPct) || (new Date(b.updatedAt) - new Date(a.updatedAt)))
+      .slice(0, limit);
+    res.json({ ok: true, leaderboard: items });
   });
 
   router.get('/mission/runs', (req, res) => {
@@ -42,6 +63,7 @@ export function createApiRouter() {
       analytics: {
         signalScore: run.plan?.signalScore || null,
         backtest: run.plan?.backtest || null,
+        simulator: run.plan?.simulator || null,
         executionBridge: run.plan?.executionBridge || null
       }
     });

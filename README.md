@@ -15,7 +15,7 @@ This project turns a trading mission into a multi-agent workflow:
 
 ## Current release
 
-The repo is now a **Stage 4 demo-ready MVP**:
+The repo is now a **final demo-ready MVP**:
 
 - modular backend app/router layout
 - six independent backend agent modules
@@ -30,9 +30,12 @@ The repo is now a **Stage 4 demo-ready MVP**:
 - persisted mission runs and replay frames
 - frontend mission archive with one-click replay
 - execution bridge panel with routes / guardrails / triggers
-- **signal scoring engine** for direction / confidence / action suggestion
-- **simplified backtest preview** over recent hourly candles
-- dashboard widgets for score + backtest edge
+- signal scoring engine for direction / confidence / action suggestion
+- simplified backtest preview over recent hourly candles
+- execution simulator with entry / stop / targets / notional cap / reward-risk
+- live multi-asset watchlist (BTC / ETH / SOL / OKB)
+- strategy leaderboard derived from historical runs
+- dashboard widgets for score + backtest edge + simulator outputs
 
 ## Stack
 
@@ -63,6 +66,14 @@ http://127.0.0.1:8848/
 ### Build mission plan
 
 `POST /api/mission/plan`
+
+### Market watchlist
+
+`GET /api/market/watchlist`
+
+### Strategy leaderboard
+
+`GET /api/analytics/leaderboard`
 
 ### Create persisted mission run
 
@@ -117,7 +128,7 @@ src/
 
 The execution layer still produces structured execution plans rather than real orders. That keeps the repo safe to run publicly while preserving the end-to-end coordination model.
 
-The new score/backtest modules are **decision-support layers**, not live trading promises. They are intentionally lightweight and explainable so the repo remains safe to demo publicly.
+The score / backtest / simulator modules are **decision-support layers**, not live trading promises. They are intentionally lightweight, explainable, and safe to demo publicly.
 
 ## License
 

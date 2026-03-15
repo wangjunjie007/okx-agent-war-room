@@ -4,7 +4,7 @@ import { runIntelAgent } from '../agents/intel-agent.js';
 import { runReviewAgent } from '../agents/review-agent.js';
 import { runRiskAgent } from '../agents/risk-agent.js';
 import { runStrategyAgent } from '../agents/strategy-agent.js';
-import { buildBacktestPreview, buildSignalScore } from './analytics.js';
+import { buildBacktestPreview, buildExecutionSimulator, buildSignalScore } from './analytics.js';
 import { getMarketSnapshot } from './okx.js';
 import { decideTone, detectAsset, riskLevel, side } from './mission-utils.js';
 
@@ -16,8 +16,9 @@ export async function buildMissionPlan({ mission, mode = 'alpha' }) {
   const risk = riskLevel(snapshot);
   const signalScore = buildSignalScore({ snapshot, bias, risk, mode });
   const backtest = buildBacktestPreview({ snapshot, bias });
+  const simulator = buildExecutionSimulator({ snapshot, bias, risk, signalScore, backtest });
 
-  const context = { mission, mode, asset, snapshot, tones, bias, risk, signalScore, backtest };
+  const context = { mission, mode, asset, snapshot, tones, bias, risk, signalScore, backtest, simulator };
   const intel = runIntelAgent(context);
   const chain = runChainAgent(context);
   const strategy = runStrategyAgent({ ...context, intel, chain });
@@ -35,6 +36,7 @@ export async function buildMissionPlan({ mission, mode = 'alpha' }) {
     snapshot,
     signalScore,
     backtest,
+    simulator,
     stageOutputs: {
       intel,
       chain,

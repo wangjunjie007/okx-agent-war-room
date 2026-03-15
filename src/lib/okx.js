@@ -3,7 +3,7 @@ import axios from 'axios';
 const client = axios.create({
   baseURL: 'https://www.okx.com',
   timeout: 15000,
-  headers: { 'User-Agent': 'okx-agent-war-room/0.2.0' }
+  headers: { 'User-Agent': 'okx-agent-war-room/0.4.0' }
 });
 
 export function resolveInstId(asset = 'ETH') {
@@ -106,4 +106,16 @@ export async function getMarketSnapshot(asset) {
     fundingRate: fundingRate?.fundingRate ? Number(fundingRate.fundingRate) : 0,
     candles: hourlyCloses
   };
+}
+
+export async function getWatchlistSnapshots(assets = ['BTC', 'ETH', 'SOL', 'OKB']) {
+  const unique = [...new Set((assets || []).map(asset => String(asset || '').trim().toUpperCase()).filter(Boolean))];
+  const snapshots = await Promise.all(unique.map(async (asset) => {
+    try {
+      return await getMarketSnapshot(asset);
+    } catch (error) {
+      return { asset, error: error.message || String(error) };
+    }
+  }));
+  return snapshots;
 }

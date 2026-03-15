@@ -1,11 +1,12 @@
 import { fmt, fmtSigned } from './mission-utils.js';
 
-export function buildExecutionBridge({ asset, snapshot, bias, risk, mode, strategyText, riskText, signalScore }) {
+export function buildExecutionBridge({ asset, snapshot, bias, risk, mode, strategyText, riskText, signalScore, simulator }) {
   const guardrails = [
     `风险等级 ${risk}`,
     `波动率代理 ${fmt(snapshot.volatilityPct)}%`,
     `盘口失衡阈值 ${fmtSigned((snapshot.flowImbalance || 0) * 100, 2, '%')}`,
     `信号评分 ${signalScore?.total || 0}/100`,
+    `模拟仓位上限 ${simulator?.notionalPct || 0}%`,
     '仅输出执行路径，不触发真实下单'
   ];
 
@@ -31,6 +32,7 @@ export function buildExecutionBridge({ asset, snapshot, bias, risk, mode, strate
     { lane: 'signal-intake', title: 'Signal Intake', detail: `接收 ${mode} 模式下的市场快照、评分与任务意图` },
     { lane: 'risk-check', title: 'Risk Check', detail: riskText },
     { lane: 'execution-bus', title: 'Execution Bus', detail: strategyText },
+    { lane: 'simulator', title: 'Execution Simulator', detail: simulator?.summary || '等待模拟执行路径' },
     { lane: 'review-loop', title: 'Review Loop', detail: '写入 replay 帧、事件日志、评分和最终纪要' }
   ];
 

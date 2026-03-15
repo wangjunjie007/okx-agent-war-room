@@ -1,7 +1,9 @@
-import { createMissionRun, fetchReplay, fetchRun, fetchRuns } from './js/api.js';
+import { createMissionRun, fetchLeaderboard, fetchReplay, fetchRun, fetchRuns, fetchWatchlist } from './js/api.js';
 import { AGENTS } from './js/constants.js';
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const fmt = (n, d = 2) => Number(n || 0).toFixed(d);
+const signed = (n, d = 2, suffix = '') => `${Number(n || 0) > 0 ? '+' : ''}${Number(n || 0).toFixed(d)}${suffix}`;
 
 const agentGrid = document.getElementById('agentGrid');
 const logList = document.getElementById('logList');
@@ -44,6 +46,15 @@ const backtestPnl = document.getElementById('backtestPnl');
 const backtestWinRate = document.getElementById('backtestWinRate');
 const backtestDrawdown = document.getElementById('backtestDrawdown');
 const backtestSummary = document.getElementById('backtestSummary');
+const simChip = document.getElementById('simChip');
+const simSide = document.getElementById('simSide');
+const simEntry = document.getElementById('simEntry');
+const simStop = document.getElementById('simStop');
+const simTargets = document.getElementById('simTargets');
+const simSize = document.getElementById('simSize');
+const simSummary = document.getElementById('simSummary');
+const leaderboardList = document.getElementById('leaderboardList');
+const watchlistStrip = document.getElementById('watchlistStrip');
 
 let intentText = null;
 let conclusionText = null;
@@ -51,6 +62,8 @@ let activeRun = 0;
 let currentRunId = null;
 let renderedEventCount = 0;
 let autoLoop = null;
+let watchlistTimer = null;
+let leaderboardTimer = null;
 
 init();
 
@@ -59,6 +72,10 @@ function init() {
   seedLogs();
   bindEvents();
   refreshArchive();
+  refreshWatchlist();
+  refreshLeaderboard();
+  watchlistTimer = setInterval(refreshWatchlist, 15000);
+  leaderboardTimer = setInterval(refreshLeaderboard, 20000);
 }
 
 function bindEvents() {
@@ -140,17 +157,19 @@ function seedLogs() {
   pushLog('系统', '作战室已就绪，等待新指令。');
   pushBubble('系统广播', '战区已联机，所有 Agent 处于待命状态。', 'right', 'intel');
   ensureCommsNarrative();
-  intentText.textContent = '在输入框下达任务后，系统会生成多 Agent 协作叙事、执行路径、评分与回测结论。';
+  intentText.textContent = '在输入框下达任务后，系统会生成多 Agent 协作叙事、执行路径、评分、回测与模拟执行建议。';
   conclusionText.textContent = '等待多 Agent 形成结论后，在这里输出更完整的策略纪要、风险摘要和执行建议。';
   createMissionCards([
     ['情报采集', '监测 X 情绪、热点叙事、链上异动与风险线索'],
     ['策略编排', '把市场信号压缩为可执行的战术意图'],
-    ['评分 / 回测', '输出信号评分、方向建议与最近 24h 简化回测'],
+    ['评分 / 回测', '输出 Signal Score、方向建议与最近 24h 简化回测'],
+    ['执行模拟', '输出 entry / stop / target / 仓位上限'],
     ['执行协同', '通过 OKX Agent Trade Kit 作为执行中枢做视觉演示']
   ]);
   renderBridge(null);
   renderSignalScore(null);
   renderBacktest(null);
+  renderSimulator(null);
   scrollComms(true);
 }
 
@@ -291,6 +310,66 @@ function renderBacktest(backtest) {
   backtestSummary.textContent = backtest.summary;
 }
 
+function renderSimulator(simulator) {
+  if (!simulator) {
+    simChip.textContent = 'Pending';
+    simSide.textContent = '--';
+    simEntry.textContent = '--';
+    simStop.textContent = '--';
+    simTargets.textContent = '--';
+    simSize.textContent = '--';
+    simSummary.textContent = '等待生成模拟执行路径。';
+    return;
+  }
+  simChip.textContent = simulator.side;
+  simSide.textContent = simulator.side;
+  simEntry.textContent = `${simulator.entryLow} ~ ${simulator.entryHigh}`;
+  simStop.textContent = `${simulator.stop}`;
+  simTargets.textContent = `${simulator.target1} / ${simulator.target2}`;
+  simSize.textContent = `${simulator.notionalPct}% · RR ${simulator.rewardRisk}`;
+  simSummary.textContent = simulator.summary;
+}
+
+function renderWatchlist(items) {
+  if (!watchlistStrip) return;
+  if (!items?.length) {
+    watchlistStrip.innerHTML = '<div class="watch-card">暂无 watchlist 数据</div>';
+    return;
+  }
+  watchlistStrip.innerHTML = items.map(item => {
+    if (item.error) {
+      return `<div class="watch-card"><div class="asset">${item.asset}</div><div class="price">--</div><div class="delta">读取失败</div><div class="sub">${item.error}</div></div>`;
+    }
+    const syntheticScore = Math.max(0, Math.min(100, Math.round(50 + item.change24hPct * 5 + item.flowImbalance * 120)));
+    return `
+      <div class="watch-card">
+        <div class="asset">${item.asset}</div>
+        <div class="price">${fmt(item.last)}</div>
+        <div class="delta">24h ${signed(item.change24hPct, 2, '%')} · Flow ${signed(item.flowImbalance * 100, 1, '%')}</div>
+        <div class="sub">Vol ${fmt(item.volatilityPct, 2)}% · Score ${syntheticScore}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderLeaderboard(items) {
+  if (!leaderboardList) return;
+  if (!items?.length) {
+    leaderboardList.innerHTML = '<div class="archive-empty">暂无 leaderboard 数据</div>';
+    return;
+  }
+  leaderboardList.innerHTML = items.map((item, index) => `
+    <div class="leaderboard-item">
+      <div class="leaderboard-top">
+        <span class="leaderboard-rank">#${index + 1} ${item.asset}</span>
+        <span>${item.signalScore} / ${item.confidence}</span>
+      </div>
+      <div class="archive-meta">${item.mission || '未命名任务'}</div>
+      <div class="archive-meta small">Bias ${item.bias} · PnL ${item.pnlPct > 0 ? '+' : ''}${item.pnlPct}% · Win ${item.winRate}%</div>
+    </div>
+  `).join('');
+}
+
 function resetBoard() {
   AGENTS.forEach(agent => setAgentState(agent.key, { badge: 'Standby', status: '等待新任务', pct: 0, note: agent.note, busy: false }));
   missionState.textContent = '待命';
@@ -317,6 +396,7 @@ function resetBoard() {
   renderBridge(null);
   renderSignalScore(null);
   renderBacktest(null);
+  renderSimulator(null);
   approvalStamp.classList.remove('show');
 }
 
@@ -328,6 +408,7 @@ function applyRunPresentation(run) {
   renderBridge(run.plan?.executionBridge || null);
   renderSignalScore(run.plan?.signalScore || null);
   renderBacktest(run.plan?.backtest || null);
+  renderSimulator(run.plan?.simulator || null);
   if (run.conclusionHtml) conclusionText.innerHTML = run.conclusionHtml;
   const states = run.agentStates || [];
   states.forEach(state => setAgentState(state.key, state));
@@ -380,7 +461,7 @@ async function watchMissionRun(runId, ticket) {
     if (run.status === 'completed' || run.status === 'failed') break;
     await sleep(700);
   }
-  await refreshArchive();
+  await Promise.all([refreshArchive(), refreshLeaderboard()]);
 }
 
 async function startMission() {
@@ -402,6 +483,7 @@ async function startMission() {
     ['信号拆解', `解析指令意图：${mission}`],
     ['跨 Agent 协同', '情报、链上、策略、风控、执行、复盘模块同步工作'],
     ['评分 / 回测', '输出 Signal Score、方向建议与简化回测边际'],
+    ['执行模拟', '输出 entry / stop / target / 仓位上限与 RR'],
     ['执行桥接', 'Execution Bridge 生成路由、护栏、评分与回放帧']
   ]);
   pushLog('指挥官', `已下达任务：${mission}`);
@@ -445,6 +527,22 @@ async function refreshArchive() {
     renderArchive(await fetchRuns(8));
   } catch (error) {
     archiveList.innerHTML = `<div class="archive-empty">归档读取失败：${error.message || error}</div>`;
+  }
+}
+
+async function refreshWatchlist() {
+  try {
+    renderWatchlist(await fetchWatchlist());
+  } catch (error) {
+    watchlistStrip.innerHTML = `<div class="watch-card">Watchlist 读取失败：${error.message || error}</div>`;
+  }
+}
+
+async function refreshLeaderboard() {
+  try {
+    renderLeaderboard(await fetchLeaderboard(8));
+  } catch (error) {
+    leaderboardList.innerHTML = `<div class="archive-empty">Leaderboard 读取失败：${error.message || error}</div>`;
   }
 }
 
